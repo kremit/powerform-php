@@ -557,7 +557,7 @@ class forms
 					else
 					{
 						$html .= '<option value="' . htmlspecialchars($key) . '"';
-						if($value == $key)
+						if($value == $option_value)
 						{
 							$html .= ' selected="selected"';
 						}
