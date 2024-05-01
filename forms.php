@@ -108,6 +108,7 @@ class forms
 			$this->error_ids[$id] = $error;
 		}
 		$this->has_errors = TRUE;
+		$this->step = 'at_form';
 	}
 
 	function has_errors()
@@ -158,6 +159,7 @@ class forms
 
 	function check_captcha($recaptcha_private_key, $recaptcha_public_key)
 	{
+		$step_in = $this->step;
 		if (empty($recaptcha_private_key) || empty($recaptcha_public_key))
 		{
 			throw new Exception('Form class: check_captcha() requires a valid private and public key from reCAPTCHA');
@@ -182,18 +184,31 @@ class forms
 
 		if (is_object($resp) && isset($resp->success) && $resp->success === true)
 		{
-			if (isset($_SESSION['__post']))
+			// Explicitly check step so we can use inline captcha with this function without changing form flow type to captcha mode
+			if ($step_in === 'at_captcha')
 			{
-				$_POST = $_SESSION['__post'];
-				unset($_SESSION['__post']);
+				if (isset($_SESSION['__post']))
+				{
+					$_POST = $_SESSION['__post'];
+					unset($_SESSION['__post']);
+				}
+				$this->captcha_step_done = TRUE;
+				$this->step = 'ready';
 			}
-			$this->captcha_step_done = TRUE;
-			$this->step = 'ready';
 		}
 		else
 		{
 			$this->error('g-recaptcha-response', 'Please answer the security question below or try again.');
-			$this->step = 'at_captcha';
+			if ($step_in === 'at_captcha') $this->step = 'at_captcha';
+		}
+
+		if (is_object($resp))
+		{
+			return $resp;
+		}
+		else
+		{
+			return null;
 		}
 	}
 
@@ -679,7 +694,8 @@ class forms
 
 	function form_submitted()
 	{
-		if (isset($_POST['__form_name']) && $_POST['__form_name'] == $this->name) return TRUE;
+		// Form_submitted should reset on clear(), so check both our sentinel POST['__submit'] and step > show_form
+		if (isset($_POST['__submit']) && isset($_POST['__form_name']) && $_POST['__form_name'] == $this->name && $this->step != 'show_form') return TRUE;
 		return FALSE;
 	}
 
