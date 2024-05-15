@@ -373,7 +373,7 @@ class forms
 		$value = '';
 		$already_checked = FALSE;
 		$name_stripped = $name;
-		$i = 0;
+		$i = null;
 		$cursorkey = $this->name . '_' . $name_stripped;
 
 		// Handle new HTML5 types but assume they are text-like fields
@@ -388,16 +388,24 @@ class forms
 		{
 			// handle elements with a key given in HTML array name
 			$name_stripped = $m[1];
-			$i = $this->field_idx[$cursorkey] = (is_numeric($m[2]) ? (int)$m[2] : $m[2]);
-			if ($m[2] == '') $i = $this->field_idx[$cursorkey] = 0;
+			if (is_numeric($m[2]))
+			{
+				$i = $this->field_idx[$cursorkey] = (int)$m[2];
+			}
 		}
-		else if (!isset($this->field_idx[$cursorkey]))
+
+		if ($i === null)
 		{
-			$i = $this->field_idx[$cursorkey] = 0;
-		}
-		else
-		{
-			$i = ++$this->field_idx[$cursorkey];
+			// Field name did not contain an index, automatically track if it's part of an array
+			// For non-array fields, does nothing except create an unused counter
+			if (!isset($this->field_idx[$cursorkey]))
+			{
+				$i = $this->field_idx[$cursorkey] = 0;
+			}
+			else
+			{
+				$i = ++$this->field_idx[$cursorkey];
+			}
 		}
 
 		/* Only text, textarea, and select fields can have their values changed by the user. Other field types are
@@ -466,10 +474,10 @@ class forms
 
 		if (($type == 'radio' && $this->form_submitted() && isset($_POST[$name]) && $_POST[$name] == $value) ||
 			($type == 'radio' && !$this->form_submitted() && isset($param['value']) && isset($this->values[$name]) && $param['value'] == $this->values[$name]) ||
-			($type == 'checkbox' && $this->form_submitted() && isset($_POST[$name_stripped]) && is_string($_POST[$name_stripped]) && $_POST[$name_stripped] == $value) ||
-			($type == 'checkbox' && $this->form_submitted() && isset($_POST[$name_stripped]) && is_array($_POST[$name_stripped]) && isset($_POST[$name_stripped][$i]) && $param['value'] == $_POST[$name_stripped][$i]) ||
+			($type == 'checkbox' && $this->form_submitted() && isset($param['value'], $_POST[$name_stripped]) && is_string($_POST[$name_stripped]) && $_POST[$name_stripped] == $param['value']) ||
+			($type == 'checkbox' && $this->form_submitted() && isset($param['value'], $_POST[$name_stripped]) && is_array($_POST[$name_stripped]) && in_array($param['value'], $_POST[$name_stripped], true)) ||
 			($type == 'checkbox' && !$this->form_submitted() && isset($param['value'], $this->values[$name_stripped]) && $param['value'] == $this->values[$name_stripped]) ||
-			($type == 'checkbox' && !$this->form_submitted() && isset($param['value'], $this->values[$name_stripped]) && is_array($this->values[$name_stripped]) && isset($this->values[$name_stripped][$i])) ||
+			($type == 'checkbox' && !$this->form_submitted() && isset($param['value'], $this->values[$name_stripped]) && is_array($this->values[$name_stripped]) && in_array($param['value'], $this->values[$name_stripped], true)) ||
 			(isset($this->checkbox[$name_stripped]) && isset($this->checkbox[$name_stripped]['on']) && ($value == $this->checkbox[$name_stripped]['on']))
 		)
 		{
@@ -560,7 +568,7 @@ class forms
 						foreach ($option_value as $og_key => $og_option_value)
 						{
 							$html .= '<option value="' . htmlspecialchars($og_key) . '"';
-							if ($value == $og_key)
+							if ($value == (string)$og_key)
 							{
 								$html .= ' selected="selected"';
 							}
@@ -571,7 +579,7 @@ class forms
 					else
 					{
 						$html .= '<option value="' . htmlspecialchars($key) . '"';
-						if ($value == $key)
+						if ($value == (string)$key) // Fix GH#1: no value with key "0" causes option to be selected
 						{
 							$html .= ' selected="selected"';
 						}
